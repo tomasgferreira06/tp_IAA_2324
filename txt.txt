@@ -1,0 +1,9 @@
+Acões para os leões:
+
+1) Alimentar-se: Se um leão estiver numa célula com comida, ele deve comer e ganhar energia;
+2) Deslocar-se para a frente: O leão move-se para a célula diretamente à sua frente;
+3) Rodar 90º à esquerda ou à direita: O leão muda a sua direção;
+4) Combater hienas: Se um leão detetar uma hiena na sua célula, ele deve combater;
+5) Movimentação especial: Se um leão detetar duas ou mais hienas nas células vizinhas, ele deve mover-se na direção oposta para se afastar delas.
+
+Para isto vou criar um procedimento chamado Leao-Acoes.

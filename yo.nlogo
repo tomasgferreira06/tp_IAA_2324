@@ -10,17 +10,21 @@ globals[alimento_castanho alimento_vermelho ingerido_castanho ingerido_vermelho 
 
 
 
-
 to Go
   ask leoes[
-    if descanso_ticks > 0[
-      set descanso_ticks descanso_ticks -  1
-    ]else[
+    ifelse descanso_ticks > 0 [
+      set descanso_ticks descanso_ticks - 1
+    ] [
       Leao-Acoes
     ]
   ]
 
+  ask hienas[
+    Hiena-Acoes
+  ]
+
 end
+
 
 
 
@@ -72,8 +76,8 @@ to Leao-Acoes
     ]
   ]
 
-  ; Se o nível de energia for igual ou superior ao limiar, movimentação especial é prioritária
-  if ciunt hienas in-radius 1 >= 2 [
+
+  if count hienas in-radius 1 >= 2 [
     Movimentacao-Especial
     stop
   ]
@@ -94,20 +98,23 @@ to Leao-Acoes
 end
 
 to Movimentacao-Especial
-  let hienas-esquerda count hienas in-cone 1 90 left 45 ; hienas à esquerda
-  let hienas-direita count hienas in-cone 1 90 right 45 ; hienas à direita
-  let hienas-frente count hienas in-cone 1 90 0 ; hienas à frente
+ let hienas-esquerda count hienas in-radius 1 with [abs (subtract-headings heading (towards myself)) = 90] ; hienas à esquerda
+ let hienas-direita count hienas in-radius 1 with [abs (subtract-headings heading (towards myself)) = 270] ; hienas à direita
+ let hienas-frente count hienas in-radius 1 with [abs (subtract-headings heading (towards myself)) = 0] ; hienas à frente
 
-  if hienas-esquerda >= 2 and hienas-direita = 0[ ;apenas hienas à esquerda
+
+
+
+  if hienas-esquerda >= 2 and hienas-direita = 0 and hienas-frente = 0[ ;apenas hienas à esquerda
     right 90
     forward 1
     set energy energy - 2
   ]
 
-  if hienas-direita >= 2 and hienas-esquerda = 0[ ;apenas hienas à direita
+  if hienas-direita >= 2 and hienas-esquerda = 0 and hienas-frente = 0[ ;apenas hienas à direita
    left 90
-    forward 1
-    set energy energy - 2
+   forward 1
+   set energy energy - 2
   ]
 
   if (hienas-frente >= 2 and hienas-esquerda = 0 and hienas-direita = 0) or
@@ -120,7 +127,7 @@ to Movimentacao-Especial
   if hienas-esquerda >= 1 and hienas-frente >= 1 and hienas-direita = 0[ ; hienas  à frente e à esquerda
     set heading heading + 135 ; direção atrás à direita
     forward 1
-    set energy enery - 5
+    set energy energy - 5
   ]
 
   if hienas-direita >= 1 and hienas-frente >= 1 and hienas-esquerda = 0 [ ; hienas à direita e à frente
@@ -141,15 +148,18 @@ to Combater-Hiena
   let hiena_vitima one-of hienas-here ; Escolhe uma hiena na mesma célula
   let energia_perdida hiena_vitima's energy * percentagem_combate / 100 ; Percentagem configurada pelo utilizador
   set energy energy - energia_perdida
-  ask hiena_vitima [ die ] ; Mata a hiena
-  ; Transforma a hiena em alimento de pequeno porte (pode ser implementado de várias maneiras, por exemplo, mudando a cor do patch)
+  ask hiena_vitima [
+    die ; Mata a hiena
+    ask patch-here [ set pcolor brown ] ; Transforma a hiena em alimento de pequeno porte mudando a cor do patch para castanho
+  ]
+
 end
 
 
 to Eat
   ;Verifica se o leão está em uma célula com alimento de grande porte(vermelho)
   if pcolor = red[
-    set energy energy + random 50 + 1 ; falta implemtentar do user
+    set energy energy + random 50 + 1 ; falta implemetentar do user
     set pcolor brown ; Transforma o alimento de grande porte em alimento de pequeno porte
   ]
 
@@ -166,6 +176,41 @@ to Reaparece-Alimento-Pequeno
     set pcolor brown
   ]
 end
+
+to Hiena-Acoes
+  ; Se a hiena detetar um leão na mesma célula, há combate
+  if any? leoes-here [
+    Combater-Leao
+    stop
+  ]
+
+  ; Se a hiena estiver numa célula com alimento, ela se alimenta
+  if pcolor = alimento_castanho or pcolor = alimento_vermelho [
+    Eat
+    stop
+  ]
+
+  ; Se nenhuma das condições for satisfeita, a hiena realiza uma ação aleatória
+  let acao random 3
+  if acao = 0 [forward 1]
+  if acao = 1 [left 90]
+  if acao = 2 [right 90]
+  Perde-Energia
+end
+
+to Combater-Leao
+
+end
+
+
+
+
+
+
+
+
+
+
 
 @#$#@#$#@
 GRAPHICS-WINDOW

@@ -3,9 +3,10 @@ breed [leoes leao] ;cria agentes do tipo leao
 
 
 turtles-own [energy]
-leoes-own [descanso_ticks]
+leoes-own [descanso_ticks hienas-esquerda hienas-direita hienas-frente]
+hienas-own [nivel-agrupamento]
 
-globals[alimento_castanho alimento_vermelho ingerido_castanho ingerido_vermelho limiar_energia percentagem_combate ticks_descanso]
+globals[nhienas nleoes alimentos_castanho alimentos_vermelho ingeridos_castanho ingeridos_vermelho ticks_descanso]
 
 
 
@@ -20,33 +21,64 @@ to Go
   ]
 
   ask hienas[
+    Atualizar-Nivel-Agrupamento
     Hiena-Acoes
   ]
+end
 
+to Setup-Patches
+  ; Primeiro, definimos todos os patches como pretos
+  ask patches [ set pcolor black ]
+
+  ; Configura patches castanhos
+  ask n-of (percentagem_alimento_castanho * count patches / 100) patches [
+    set pcolor brown
+  ]
+
+  ; Configura patches vermelhos
+  ask n-of (percentagem_alimento_vermelho * count patches / 100) patches [
+    set pcolor red
+  ]
+
+  ; Configura patches azuis
+  ask n-of num_patches_descanso patches with [pcolor = black] [ ; seleciona apenas patches pretos para evitar sobreposição
+    set pcolor blue
+  ]
 end
 
 
+
+
+to setup
+  clear-all
+  set nhienas 50; cria 50 hienas
+  set nleoes 10; cria 10 leoes
+  Setup-Patches
+  Setup_Turtles
+  reset-ticks
+end
 
 
 
 to Setup_Turtles
   clear-turtles
 
-  ;create-hienas nhienas[
-   ; set heading 0  ;direção inicial
-   ; set color white
-   ; set energy 100
-   ; let x one-of patches with[pcolor = black and not any? Hienas-here and not any? Leoes-here]
-    ;setxy [pxcor] of x [pycor] of x
- ; ]
+  create-hienas nhienas[
+   set heading 0  ;direção inicial
+   set color white
+   set energy energia_inicial
+   set nivel-agrupamento 1
+   let x one-of patches with[pcolor = black and not any? hienas-here and not any? leoes-here]
+   setxy [pxcor] of x [pycor] of x
+ ]
 
-    ;create-leoes nleoes[
-   ; set heading 0  ;direção inicial
-   ; set color magenta
-   ; set energy 100
-    ;let x one-of patches with[pcolor = black and not any? Hienas-here and not any? Leoes-here]
-   ; setxy [pxcor] of x [pycor] of x
-  ;]
+  create-leoes nleoes[
+   set heading 0  ;direção inicial
+   set color brown
+   set energy energia_inicial
+   let x one-of patches with[pcolor = black and not any? hienas-here and not any? leoes-here]
+   setxy [pxcor] of x [pycor] of x
+  ]
 
 
 end
@@ -62,92 +94,115 @@ end
 
 
 to Leao-Acoes
-  ; Se o Leão estiver numa célula azul, descansa
-  if pcolor = blue[
-    set descanso_ticks ticks_descanso
-    stop
+  ; Se o nível de energia for igual ou superior ao limiar, a movimentação especial é prioritária
+  if energy >= limiar_energia [
+    if count hienas in-radius 1 >= 2 [
+      Movimentacao-Especial
+      stop
+    ]
   ]
 
-  ;Se o nível de energia for inferior ao limiar, a alimentação é prioritária
-  if energy < limiar_energia[
-    if pcolor = alimento_castanho or pcolor = alimento_vermelho[
+  ; Se o nível de energia for inferior ao limiar, a alimentação é prioritária
+  if energy < limiar_energia [
+    if pcolor = percentagem_alimento_castanho or pcolor = percentagem_alimento_vermelho [
       Eat
       stop
     ]
   ]
 
-
-  if count hienas in-radius 1 >= 2 [
-    Movimentacao-Especial
+  ; Se o Leão estiver numa célula azul, descansa
+  if pcolor = blue [
+    set descanso_ticks ticks_descanso
     stop
   ]
 
-  ;Se detetar uma hiena na mesma célula, há combate
+  ; Se detetar uma hiena na mesma célula, há combate
   if any? hienas-here [
-   Combater-Hiena
-   stop
+    Combater-Hiena
+    stop
   ]
 
-  ;Se nenhuma das condições for satisfeita, o leao realiza uma acao aleatoria
-  let acao random 3;
+  ; Se nenhuma das condições for satisfeita, o leao realiza uma acao aleatoria
+  let acao random 3
   if acao = 0 [forward 1]
   if acao = 1 [left 90]
   if acao = 2 [right 90]
   Perde-Energia
-
 end
 
+
 to Movimentacao-Especial
- let hienas-esquerda count hienas in-radius 1 with [abs (subtract-headings heading (towards myself)) = 90] ; hienas à esquerda
- let hienas-direita count hienas in-radius 1 with [abs (subtract-headings heading (towards myself)) = 270] ; hienas à direita
- let hienas-frente count hienas in-radius 1 with [abs (subtract-headings heading (towards myself)) = 0] ; hienas à frente
+set hienas-esquerda count hienas in-radius 1 with [
+    self != myself and
+    (towards myself != heading or self != myself) and
+    abs (subtract-headings heading (towards myself)) = 90
+]
 
 
+set hienas-direita count hienas in-radius 1 with [
+    self != myself and
+    (towards myself != heading or self != myself) and
+    abs (subtract-headings heading (towards myself)) = 270
+]
+
+set hienas-frente count hienas in-radius 1 with [
+    self != myself and
+    (towards myself != heading or self != myself) and
+    abs (subtract-headings heading (towards myself)) = 0
+]
 
 
-  if hienas-esquerda >= 2 and hienas-direita = 0 and hienas-frente = 0[ ;apenas hienas à esquerda
+  ; apenas hienas à esquerda
+  if hienas-esquerda >= 2 and hienas-direita = 0 and hienas-frente = 0 [
     right 90
     forward 1
     set energy energy - 2
   ]
 
-  if hienas-direita >= 2 and hienas-esquerda = 0 and hienas-frente = 0[ ;apenas hienas à direita
-   left 90
-   forward 1
-   set energy energy - 2
+  ; apenas hienas à direita
+  if hienas-direita >= 2 and hienas-esquerda = 0 and hienas-frente = 0 [
+    left 90
+    forward 1
+    set energy energy - 2
   ]
 
+  ; hienas apenas à frente ou dos dois lados sem nenhuma à frente
   if (hienas-frente >= 2 and hienas-esquerda = 0 and hienas-direita = 0) or
-     (hienas-esquerda >= 1 and hienas-direita >= 1 and hienas-frente = 0) [ ; hienas apenas à frente ou dos dois lados
+     (hienas-esquerda >= 1 and hienas-direita >= 1 and hienas-frente = 0) [
     set heading heading + 180
     forward 1
     set energy energy - 3
   ]
 
-  if hienas-esquerda >= 1 and hienas-frente >= 1 and hienas-direita = 0[ ; hienas  à frente e à esquerda
+  ; hienas à frente e à esquerda sem nenhuma à direita
+  if hienas-esquerda >= 1 and hienas-frente >= 1 and hienas-direita = 0 [
     set heading heading + 135 ; direção atrás à direita
     forward 1
     set energy energy - 5
   ]
 
-  if hienas-direita >= 1 and hienas-frente >= 1 and hienas-esquerda = 0 [ ; hienas à direita e à frente
+  ; hienas à direita e à frente sem nenhuma à esquerda
+  if hienas-direita >= 1 and hienas-frente >= 1 and hienas-esquerda = 0 [
     set heading heading + 225 ; direção atrás à esquerda
     forward 1
     set energy energy - 5
   ]
 
-  if hienas-esquerda >= 1 and hienas-direita >= 1 and hienas-frente >= 1 [ ; hienas em todos os três lados
+  ; hienas em todos os três lados
+  if hienas-esquerda >= 1 and hienas-direita >= 1 and hienas-frente >= 1 [
     set heading heading + 180
     forward 2
     set energy energy - 4
   ]
-
 end
+
 
 to Combater-Hiena
   let hiena_vitima one-of hienas-here ; Escolhe uma hiena na mesma célula
-  let energia_perdida hiena_vitima's energy * percentagem_combate / 100 ; Percentagem configurada pelo utilizador
+  let energia_perdida [energy] of hiena_vitima * percentagem_combate / 100 ; Percentagem configurada pelo utilizador
+
   set energy energy - energia_perdida
+
   ask hiena_vitima [
     die ; Mata a hiena
     ask patch-here [ set pcolor brown ] ; Transforma a hiena em alimento de pequeno porte mudando a cor do patch para castanho
@@ -159,15 +214,16 @@ end
 to Eat
   ;Verifica se o leão está em uma célula com alimento de grande porte(vermelho)
   if pcolor = red[
-    set energy energy + random 50 + 1 ; falta implemetentar do user
+    set energy energy + energia_ingestao ; energia_ingestão é configurado pelo utilizador
     set pcolor brown ; Transforma o alimento de grande porte em alimento de pequeno porte
   ]
 
   ;Verifica se o leão está em uma célula com alimento de pequeno porte(castanho)
   if pcolor = brown [
-    set energy energy + random 50 + 1 ; falta implementar do user
+    set energy energy + energia_ingestao ; energia_ingestão é configurado pelo utilizador
     set pcolor black ;Transforma a célula em vazia
     Reaparece-Alimento-Pequeno
+  ]
 end
 
 to Reaparece-Alimento-Pequeno
@@ -177,16 +233,37 @@ to Reaparece-Alimento-Pequeno
   ]
 end
 
+to Atualizar-Nivel-Agrupamento
+  set nivel-agrupamento count hienas in-radius 1
+  ifelse nivel-agrupamento > 1 [
+    set color blue  ; ou qualquer outra cor
+  ] [
+    set color white ;cor original da hiena
+  ]
+
+end
+
+
+
+
+
+
 to Hiena-Acoes
-  ; Se a hiena detetar um leão na mesma célula, há combate
-  if any? leoes-here [
-    Combater-Leao
+
+  ;Ignora as células azuis
+  if pcolor = blue[
     stop
   ]
 
-  ; Se a hiena estiver numa célula com alimento, ela se alimenta
-  if pcolor = alimento_castanho or pcolor = alimento_vermelho [
+    ; Se a hiena estiver numa célula com alimento, ela se alimenta
+  if pcolor = percentagem_alimento_castanho or pcolor = percentagem_alimento_vermelho [
     Eat
+    stop
+  ]
+
+  ; Se a hiena detetar um leão na mesma célula e o nível de agrupamento superior a 1, há combate
+  if any? leoes-here and nivel-agrupamento > 1 [
+    Combater-Leao
     stop
   ]
 
@@ -199,11 +276,14 @@ to Hiena-Acoes
 end
 
 to Combater-Leao
-
+  let leao_vitima one-of leoes-here ; escolhe um leao na mesma celula
+  ;let energia_perdida (leao_vitima's energy * percentagem_combate / 100) / nivel-agrupamento ; percentagem configurada pelo utilizador
+  ;set energy energy -  energia_perdida
+  ask leao_vitima [
+    die; mata o leao
+    ask patch-here [ set pcolor red] ; transfroma o leao em comida
+  ]
 end
-
-
-
 
 
 
@@ -273,6 +353,111 @@ NIL
 NIL
 NIL
 1
+
+SLIDER
+8
+117
+239
+150
+percentagem_alimento_castanho
+percentagem_alimento_castanho
+0
+20
+1.0
+1
+1
+%
+HORIZONTAL
+
+SLIDER
+8
+161
+241
+194
+percentagem_alimento_vermelho
+percentagem_alimento_vermelho
+0
+10
+1.0
+1
+1
+%
+HORIZONTAL
+
+SLIDER
+8
+205
+180
+238
+energia_ingestao
+energia_ingestao
+1
+50
+25.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+8
+247
+180
+280
+energia_inicial
+energia_inicial
+1
+200
+100.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+8
+289
+193
+322
+percentagem_combate
+percentagem_combate
+0
+25
+10.0
+1
+1
+%
+HORIZONTAL
+
+SLIDER
+6
+329
+178
+362
+limiar_energia
+limiar_energia
+10
+50
+20.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+7
+77
+179
+110
+num_patches_descanso
+num_patches_descanso
+0
+5
+5.0
+1
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?

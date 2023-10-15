@@ -2,62 +2,58 @@ breed [hienas hiena] ;cria agentes do tipo hiena
 breed [leoes leao] ;cria agentes do tipo leao
 
 
-turtles-own [energy]
+turtles-own [ energy ]
 leoes-own [descanso_ticks hienas-esquerda hienas-direita hienas-frente]
 hienas-own [nivel-agrupamento]
 
-globals[nhienas nleoes alimentos_castanho alimentos_vermelho ingeridos_castanho ingeridos_vermelho ticks_descanso]
+globals[ alimentos_castanho alimentos_vermelho ingeridos_castanho ingeridos_vermelho]
 
-
-
-
-to Go
-  ask leoes[
-    ifelse descanso_ticks > 0 [
-      set descanso_ticks descanso_ticks - 1
-    ] [
-      Leao-Acoes
-    ]
-  ]
-
-  ask hienas[
-    Atualizar-Nivel-Agrupamento
-    Hiena-Acoes
-  ]
-end
-
-to Setup-Patches
-  ; Primeiro, definimos todos os patches como pretos
-  ask patches [ set pcolor black ]
-
-  ; Configura patches castanhos
-  ask n-of (percentagem_alimento_castanho * count patches / 100) patches [
-    set pcolor brown
-  ]
-
-  ; Configura patches vermelhos
-  ask n-of (percentagem_alimento_vermelho * count patches / 100) patches [
-    set pcolor red
-  ]
-
-  ; Configura patches azuis
-  ask n-of num_patches_descanso patches with [pcolor = black] [ ; seleciona apenas patches pretos para evitar sobreposição
-    set pcolor blue
-  ]
-end
-
-
-
-
-to setup
-  clear-all
-  set nhienas 50; cria 50 hienas
-  set nleoes 10; cria 10 leoes
+to Setup
   Setup-Patches
   Setup_Turtles
   reset-ticks
 end
 
+
+to Go
+  MoveLeoes
+ ; Hiena-Acoes
+  Eat-Leao
+  ;Eat-Hiena
+  RegenAlimento
+
+end
+
+to Setup-Patches
+  clear-all
+
+  ask patches [ set pcolor black]; backgorund
+
+  ask patches
+  [
+    if random 101 < percentagem_alimento_castanho ;gera o alimento castanho com base no slider da interface
+    [
+      set pcolor brown
+      set alimentos_castanho count patches with [pcolor = brown]
+    ]
+
+    if random 101 < percentagem_alimento_vermelho ;gera o alimento vermelho com base no slider da interface
+    [
+      set pcolor red
+      set alimentos_vermelho count patches with [pcolor = red]
+    ]
+    ]
+
+
+ ask n-of num_patches_descanso patches
+ [
+   set pcolor blue
+ ]
+
+    set ingeridos_castanho 0
+    set ingeridos_vermelho 0
+
+end
 
 
 to Setup_Turtles
@@ -92,109 +88,111 @@ to Death
   if energy <= 0 [ die ] ;os agentes morrem quando a energia chega a 0
 end
 
+to MoveLeoes
+  ask leoes [
+    ; Verifica se a energia do leão é suficiente para a movimentação especial
+    if energy >= limiar_energia [
+      ; Se a movimentação especial ocorrer, não execute outras ações
+      if Movimentacao-Especial [
+        stop
+      ]
+    ]
 
-to Leao-Acoes
-  ; Se o nível de energia for igual ou superior ao limiar, a movimentação especial é prioritária
-  if energy >= limiar_energia [
-    if count hienas in-radius 1 >= 2 [
-      Movimentacao-Especial
-      stop
+    ; Se a energia estiver abaixo do limite
+    if [pcolor] of patch-ahead 1 = red or [pcolor] of patch-ahead 1 = brown [
+      fd 1
+      Perde-Energia
+    ]
+    ifelse [pcolor] of patch-right-and-ahead 90 1 = red or [pcolor] of patch-right-and-ahead 90 1 = brown [
+      rt 90
+      fd 1
+      Perde-Energia
+    ] [
+      if [pcolor] of patch-left-and-ahead 90 1 = red or [pcolor] of patch-left-and-ahead 90 1 = brown [
+        lt 90
+        fd 1
+        Perde-Energia
+      ]
+    ]
+    ; Se não há comida nas proximidades, move-se aleatoriamente
+    if not ([pcolor] of patch-ahead 1 = red or [pcolor] of patch-ahead 1 = brown) and
+     not ([pcolor] of patch-right-and-ahead 90 1 = red or [pcolor] of patch-right-and-ahead 90 1 = brown) and
+     not ([pcolor] of patch-left-and-ahead 90 1 = red or [pcolor] of patch-left-and-ahead 90 1 = brown) [
+      if random 101 <= 50 [
+        fd 1
+      ]
+      if random 101 > 50 and random 101 <= 100 [
+        rt 90
+        fd 1
+      ]
+      if random 101 > 100 [
+        lt 90
+        fd 1
+      ]
+      Perde-Energia
     ]
   ]
-
-  ; Se o nível de energia for inferior ao limiar, a alimentação é prioritária
-  if energy < limiar_energia [
-    if pcolor = percentagem_alimento_castanho or pcolor = percentagem_alimento_vermelho [
-      Eat
-      stop
-    ]
-  ]
-
-  ; Se o Leão estiver numa célula azul, descansa
-  if pcolor = blue [
-    set descanso_ticks ticks_descanso
-    stop
-  ]
-
-  ; Se detetar uma hiena na mesma célula, há combate
-  if any? hienas-here [
-    Combater-Hiena
-    stop
-  ]
-
-  ; Se nenhuma das condições for satisfeita, o leao realiza uma acao aleatoria
-  let acao random 3
-  if acao = 0 [forward 1]
-  if acao = 1 [left 90]
-  if acao = 2 [right 90]
-  Perde-Energia
 end
 
+to-report Hienas-Na-Direcao [angulo]
+  let hienas_count count hienas in-cone 1 60 with [heading = [heading] of myself + angulo]
+  report hienas_count
+end
 
-to Movimentacao-Especial
-set hienas-esquerda count hienas in-radius 1 with [
-    self != myself and
-    (towards myself != heading or self != myself) and
-    abs (subtract-headings heading (towards myself)) = 90
-]
+to-report Movimentacao-Especial
+  ; Verifica a presença de hienas nas direções
+  let hienas_frente Hienas-Na-Direcao 0
+  let hienas_direita Hienas-Na-Direcao 90
+  let hienas_esquerda Hienas-Na-Direcao -90
 
-
-set hienas-direita count hienas in-radius 1 with [
-    self != myself and
-    (towards myself != heading or self != myself) and
-    abs (subtract-headings heading (towards myself)) = 270
-]
-
-set hienas-frente count hienas in-radius 1 with [
-    self != myself and
-    (towards myself != heading or self != myself) and
-    abs (subtract-headings heading (towards myself)) = 0
-]
-
-
-  ; apenas hienas à esquerda
-  if hienas-esquerda >= 2 and hienas-direita = 0 and hienas-frente = 0 [
-    right 90
-    forward 1
+  ; Implementa a lógica de movimentação especial
+  if hienas_esquerda >= 2 and hienas_direita = 0 and hienas_frente = 0 [
+    rt 90
+    fd 1
     set energy energy - 2
+    report true
   ]
-
-  ; apenas hienas à direita
-  if hienas-direita >= 2 and hienas-esquerda = 0 and hienas-frente = 0 [
-    left 90
-    forward 1
+  if hienas_direita >= 2 and hienas_esquerda = 0 and hienas_frente = 0 [
+    lt 90
+    fd 1
     set energy energy - 2
+    report true
   ]
-
-  ; hienas apenas à frente ou dos dois lados sem nenhuma à frente
-  if (hienas-frente >= 2 and hienas-esquerda = 0 and hienas-direita = 0) or
-     (hienas-esquerda >= 1 and hienas-direita >= 1 and hienas-frente = 0) [
-    set heading heading + 180
-    forward 1
+  if hienas_frente >= 2 or (hienas_esquerda >= 1 and hienas_direita >= 1) [
+    bk 1
     set energy energy - 3
+    report true
   ]
-
-  ; hienas à frente e à esquerda sem nenhuma à direita
-  if hienas-esquerda >= 1 and hienas-frente >= 1 and hienas-direita = 0 [
-    set heading heading + 135 ; direção atrás à direita
-    forward 1
+  if hienas_esquerda >= 1 and hienas_frente >= 1 and hienas_direita = 0 [
+    rt 135
+    fd 1
     set energy energy - 5
+    report true
   ]
-
-  ; hienas à direita e à frente sem nenhuma à esquerda
-  if hienas-direita >= 1 and hienas-frente >= 1 and hienas-esquerda = 0 [
-    set heading heading + 225 ; direção atrás à esquerda
-    forward 1
+  if hienas_direita >= 1 and hienas_frente >= 1 and hienas_esquerda = 0 [
+    lt 135
+    fd 1
     set energy energy - 5
+    report true
   ]
-
-  ; hienas em todos os três lados
-  if hienas-esquerda >= 1 and hienas-direita >= 1 and hienas-frente >= 1 [
-    set heading heading + 180
-    forward 2
+  if hienas_esquerda >= 1 and hienas_direita >= 1 and hienas_frente >= 1 [
+    bk 2
     set energy energy - 4
+    report true
   ]
+  report false ; Se nenhuma das condições foi atendida, retorna false
 end
+
+
+
+
+
+
+
+
+
+
+
 
 
 to Combater-Hiena
@@ -211,20 +209,47 @@ to Combater-Hiena
 end
 
 
-to Eat
+to Eat-Leao
+  ask leoes[
   ;Verifica se o leão está em uma célula com alimento de grande porte(vermelho)
-  if pcolor = red[
+    ifelse [pcolor] of patch-here = red [
     set energy energy + energia_ingestao ; energia_ingestão é configurado pelo utilizador
     set pcolor brown ; Transforma o alimento de grande porte em alimento de pequeno porte
-  ]
+    set ingeridos_vermelho ingeridos_vermelho + 1
+  ][
 
   ;Verifica se o leão está em uma célula com alimento de pequeno porte(castanho)
-  if pcolor = brown [
+    if [pcolor] of patch-here = brown [
     set energy energy + energia_ingestao ; energia_ingestão é configurado pelo utilizador
     set pcolor black ;Transforma a célula em vazia
+    set ingeridos_castanho ingeridos_castanho + 1
     Reaparece-Alimento-Pequeno
-  ]
+  ]]]
+
 end
+
+
+to Eat-Hiena
+  ask hienas[
+  ;Verifica se a hiena está em uma célula com alimento de grande porte(vermelho)
+    ifelse [pcolor] of patch-here = red [
+    set energy energy + energia_ingestao ; energia_ingestão é configurado pelo utilizador
+    set pcolor brown ; Transforma o alimento de grande porte em alimento de pequeno porte
+    set ingeridos_vermelho ingeridos_vermelho + 1
+  ][
+
+  ;Verifica se a hiena está em uma célula com alimento de pequeno porte(castanho)
+      if [pcolor] of patch-here = brown [
+    set energy energy + energia_ingestao ; energia_ingestão é configurado pelo utilizador
+    set pcolor black ;Transforma a célula em vazia
+    set ingeridos_castanho ingeridos_castanho + 1
+    Reaparece-Alimento-Pequeno
+  ]]
+  ]
+
+
+end
+
 
 to Reaparece-Alimento-Pequeno
   ;Escolhe uma célula vazia e trasnformaa em alimento de pequeno porte
@@ -244,49 +269,17 @@ to Atualizar-Nivel-Agrupamento
 end
 
 
+to RegenAlimento
 
-
-
-
-to Hiena-Acoes
-
-  ;Ignora as células azuis
-  if pcolor = blue[
-    stop
-  ]
-
-    ; Se a hiena estiver numa célula com alimento, ela se alimenta
-  if pcolor = percentagem_alimento_castanho or pcolor = percentagem_alimento_vermelho [
-    Eat
-    stop
-  ]
-
-  ; Se a hiena detetar um leão na mesma célula e o nível de agrupamento superior a 1, há combate
-  if any? leoes-here and nivel-agrupamento > 1 [
-    Combater-Leao
-    stop
-  ]
-
-  ; Se nenhuma das condições for satisfeita, a hiena realiza uma ação aleatória
-  let acao random 3
-  if acao = 0 [forward 1]
-  if acao = 1 [left 90]
-  if acao = 2 [right 90]
-  Perde-Energia
-end
-
-to Combater-Leao
-  let leao_vitima one-of leoes-here ; escolhe um leao na mesma celula
-  ;let energia_perdida (leao_vitima's energy * percentagem_combate / 100) / nivel-agrupamento ; percentagem configurada pelo utilizador
-  ;set energy energy -  energia_perdida
-  ask leao_vitima [
-    die; mata o leao
-    ask patch-here [ set pcolor red] ; transfroma o leao em comida
+  if count patches with [pcolor = brown] < alimentos_castanho
+  [
+    while[count patches with [pcolor = brown] < alimentos_castanho]
+    [
+      ask one-of patches with [not any? turtles-here and pcolor = black]
+      [set pcolor brown]
+    ]
   ]
 end
-
-
-
 
 
 
@@ -453,11 +446,52 @@ num_patches_descanso
 num_patches_descanso
 0
 5
-5.0
+3.0
 1
 1
 NIL
 HORIZONTAL
+
+SLIDER
+4
+387
+176
+420
+nleoes
+nleoes
+0
+100
+15.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+4
+427
+176
+460
+nhienas
+nhienas
+0
+100
+100.0
+1
+1
+NIL
+HORIZONTAL
+
+MONITOR
+262
+61
+374
+106
+ingerido castanho
+ingeridos_castanho
+17
+1
+11
 
 @#$#@#$#@
 ## WHAT IS IT?

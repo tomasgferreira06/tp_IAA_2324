@@ -129,6 +129,8 @@ to MoveLeoes
         stop
      ]
 
+
+
     ; Verifica se o leão percebe uma célula azul e inicia o descanso
     if [pcolor] of patch-here = blue [
       set descanso_ticks numero_ticks_descanso ; numero_ticks_descanso é o número de ticks definido pelo usuário
@@ -154,6 +156,10 @@ to MoveLeoes
       Perde-Energia
       stop
     ]
+
+    ; Agora passamos 'myself' (o leão atual) para as funções.
+    Combater-Hiena self
+
 
 
      if [pcolor] of patch-ahead 1 = black or [pcolor] of patch-right-and-ahead 90 1 = black or [pcolor] of patch-left-and-ahead 90 1 = black [
@@ -194,6 +200,7 @@ to MoveHienas
         stop
       ]
 
+
      if [pcolor] of patch-ahead 1 = black or [pcolor] of patch-right-and-ahead 90 1 = black or [pcolor] of patch-left-and-ahead 90 1 = black [
         (ifelse
           random 101 <= 50 [fd 1 Perde-Energia]
@@ -206,6 +213,54 @@ to MoveHienas
     Death
   ]
 end
+
+to Combater-Hiena [agente_leao]
+  ; Conta o total de hienas na vizinhança percecionada
+  let total-hienas count hienas-on patch-ahead 1 + count hienas-on patch-right-and-ahead 90 1 + count hienas-on patch-left-and-ahead 90 1
+
+  ; Se só houver uma hiena na vizinhança percecionada, procede ao combate
+  if total-hienas = 1 [
+    ; Verifica se há uma única hiena diretamente à frente
+    if count hienas-on patch-ahead 1 = 1 [
+      Matar-Hiena agente_leao patch-ahead 1
+    ]
+
+    ; Verifica se há uma única hiena diretamente à direita
+    if count hienas-on patch-right-and-ahead 90 1 = 1 [
+      Matar-Hiena agente_leao patch-right-and-ahead 90 1
+    ]
+
+    ; Verifica se há uma única hiena diretamente à esquerda
+    if count hienas-on patch-left-and-ahead 90 1 = 1 [
+      Matar-Hiena agente_leao patch-left-and-ahead 90 1
+    ]
+  ]
+end
+
+to Matar-Hiena [agente_leao patch_alvo]
+  let hiena-vitima one-of hienas-on patch_alvo
+  let energia-perdida [energy] of hiena-vitima * percentagem_combate / 100
+
+  ; Reduz a energia do leão
+  ask agente_leao [
+    set energy energy - energia-perdida
+  ]
+
+  ; Mata a hiena e transforma-a em alimento de pequeno porte
+  ask hiena-vitima [
+    die
+  ]
+  ask patch_alvo [
+    set pcolor brown
+  ]
+end
+
+
+
+
+
+
+
 
 to-report Hienas-Na-Direcao [angulo]
   let hienas_count count hienas in-cone 1 60 with [heading = [heading] of myself + angulo]
@@ -504,7 +559,7 @@ nleoes
 nleoes
 0
 100
-50.0
+10.0
 1
 1
 NIL
@@ -519,7 +574,7 @@ nhienas
 nhienas
 0
 100
-0.0
+10.0
 1
 1
 NIL

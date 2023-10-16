@@ -17,9 +17,7 @@ end
 
 to Go
   MoveLeoes
- ; Hiena-Acoes
-  Eat-Leao
-  ;Eat-Hiena
+  MoveHienas
   RegenAlimento
 
 end
@@ -72,6 +70,7 @@ to Setup_Turtles
    set heading 0  ;direção inicial
    set color brown
    set energy energia_inicial
+   set descanso_ticks 0
    let x one-of patches with[pcolor = black and not any? hienas-here and not any? leoes-here]
    setxy [pxcor] of x [pycor] of x
   ]
@@ -90,6 +89,16 @@ end
 
 to MoveLeoes
   ask leoes [
+    ; Se o leão estiver descansando, apenas decrementa o contador de descanso e para a execução
+    if descanso_ticks > 0 [
+      set descanso_ticks descanso_ticks - 1
+      if descanso_ticks = 0 [ ; Se o descanso acabou, move o leão para a frente
+        fd 1
+        Perde-Energia
+      ]
+      stop
+    ]
+
     ; Verifica se a energia do leão é suficiente para a movimentação especial
     if energy >= limiar_energia [
       ; Se a movimentação especial ocorrer, não execute outras ações
@@ -98,39 +107,103 @@ to MoveLeoes
       ]
     ]
 
-    ; Se a energia estiver abaixo do limite
+    if [pcolor] of patch-here = red  or [pcolor] of patch-here = brown[
+      Eat-Leao
+      stop
+    ]
     if [pcolor] of patch-ahead 1 = red or [pcolor] of patch-ahead 1 = brown [
       fd 1
       Perde-Energia
+      stop
     ]
-    ifelse [pcolor] of patch-right-and-ahead 90 1 = red or [pcolor] of patch-right-and-ahead 90 1 = brown [
+    if [pcolor] of patch-right-and-ahead 90 1 = red or [pcolor] of patch-right-and-ahead 90 1 = brown [
       rt 90
       fd 1
       Perde-Energia
-    ] [
-      if [pcolor] of patch-left-and-ahead 90 1 = red or [pcolor] of patch-left-and-ahead 90 1 = brown [
+      stop
+    ]
+    if [pcolor] of patch-left-and-ahead 90 1 = red or [pcolor] of patch-left-and-ahead 90 1 = brown [
         lt 90
         fd 1
         Perde-Energia
-      ]
+        stop
+     ]
+
+    ; Verifica se o leão percebe uma célula azul e inicia o descanso
+    if [pcolor] of patch-here = blue [
+      set descanso_ticks numero_ticks_descanso ; numero_ticks_descanso é o número de ticks definido pelo usuário
+      stop
     ]
-    ; Se não há comida nas proximidades, move-se aleatoriamente
-    if not ([pcolor] of patch-ahead 1 = red or [pcolor] of patch-ahead 1 = brown) and
-     not ([pcolor] of patch-right-and-ahead 90 1 = red or [pcolor] of patch-right-and-ahead 90 1 = brown) and
-     not ([pcolor] of patch-left-and-ahead 90 1 = red or [pcolor] of patch-left-and-ahead 90 1 = brown) [
-      if random 101 <= 50 [
-        fd 1
-      ]
-      if random 101 > 50 and random 101 <= 100 [
-        rt 90
-        fd 1
-      ]
-      if random 101 > 100 [
+
+    if [pcolor] of patch-ahead 1 = blue and not any? leoes-on patch-ahead 1 [
+      fd 1
+      Perde-Energia
+      stop
+    ]
+
+    if [pcolor] of patch-right-and-ahead 90 1 = blue and not any? leoes-on patch-right-and-ahead 90 1 [
+      rt 90
+      fd 1
+      Perde-Energia
+      stop
+    ]
+
+    if [pcolor] of patch-left-and-ahead 90 1 = blue and not any? leoes-on patch-left-and-ahead 90 1 [
+      lt 90
+      fd 1
+      Perde-Energia
+      stop
+    ]
+
+
+     if [pcolor] of patch-ahead 1 = black or [pcolor] of patch-right-and-ahead 90 1 = black or [pcolor] of patch-left-and-ahead 90 1 = black [
+        (ifelse
+          random 101 <= 50 [fd 1 Perde-Energia]
+
+          random 101 <= 50 [rt 90 fd 1 Perde-Energia]
+
+          random 101 <= 50 [lt 90 fd 1 Perde-Energia]
+    )]
+    Death
+  ]
+end
+
+to MoveHienas
+  ask hienas [
+
+
+    if [pcolor] of patch-here = red  or [pcolor] of patch-here = brown[
+      Eat-Hiena
+      stop
+    ]
+    if [pcolor] of patch-ahead 1 = red or [pcolor] of patch-ahead 1 = brown [
+      fd 1
+      Perde-Energia
+      stop
+    ]
+    if [pcolor] of patch-right-and-ahead 90 1 = red or [pcolor] of patch-right-and-ahead 90 1 = brown [
+      rt 90
+      fd 1
+      Perde-Energia
+      stop
+    ]
+    if [pcolor] of patch-left-and-ahead 90 1 = red or [pcolor] of patch-left-and-ahead 90 1 = brown [
         lt 90
         fd 1
+        Perde-Energia
+        stop
       ]
-      Perde-Energia
-    ]
+
+     if [pcolor] of patch-ahead 1 = black or [pcolor] of patch-right-and-ahead 90 1 = black or [pcolor] of patch-left-and-ahead 90 1 = black [
+        (ifelse
+          random 101 <= 50 [fd 1 Perde-Energia]
+
+          random 101 <= 50 [rt 90 fd 1 Perde-Energia]
+
+          random 101 <= 50 [lt 90 fd 1 Perde-Energia]
+    )]
+
+    Death
   ]
 end
 
@@ -181,31 +254,6 @@ to-report Movimentacao-Especial
     report true
   ]
   report false ; Se nenhuma das condições foi atendida, retorna false
-end
-
-
-
-
-
-
-
-
-
-
-
-
-
-to Combater-Hiena
-  let hiena_vitima one-of hienas-here ; Escolhe uma hiena na mesma célula
-  let energia_perdida [energy] of hiena_vitima * percentagem_combate / 100 ; Percentagem configurada pelo utilizador
-
-  set energy energy - energia_perdida
-
-  ask hiena_vitima [
-    die ; Mata a hiena
-    ask patch-here [ set pcolor brown ] ; Transforma a hiena em alimento de pequeno porte mudando a cor do patch para castanho
-  ]
-
 end
 
 
@@ -280,11 +328,6 @@ to RegenAlimento
     ]
   ]
 end
-
-
-
-
-
 @#$#@#$#@
 GRAPHICS-WINDOW
 370
@@ -337,7 +380,7 @@ BUTTON
 510
 NIL
 Go
-T
+NIL
 1
 T
 OBSERVER
@@ -446,7 +489,7 @@ num_patches_descanso
 num_patches_descanso
 0
 5
-3.0
+5.0
 1
 1
 NIL
@@ -461,7 +504,7 @@ nleoes
 nleoes
 0
 100
-15.0
+50.0
 1
 1
 NIL
@@ -476,7 +519,7 @@ nhienas
 nhienas
 0
 100
-100.0
+0.0
 1
 1
 NIL
@@ -492,6 +535,21 @@ ingeridos_castanho
 17
 1
 11
+
+SLIDER
+7
+35
+181
+68
+numero_ticks_descanso
+numero_ticks_descanso
+0
+100
+5.0
+1
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?

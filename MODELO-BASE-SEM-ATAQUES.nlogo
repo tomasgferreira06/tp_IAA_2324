@@ -68,7 +68,7 @@ to Setup_Turtles
 
   create-leoes nleoes[
    set heading 0  ;direção inicial
-   set color brown
+   set color yellow
    set energy energia_inicial
    set descanso_ticks 0
    let x one-of patches with[pcolor = black and not any? hienas-here and not any? leoes-here]
@@ -177,6 +177,46 @@ end
 to MoveHienas
   ask hienas [
 
+         ; Conta o número de hienas na vizinhança imediata.
+    let vizinhos count (hienas-on patch-ahead 1) + count (hienas-on patch-right-and-ahead 90 1) + count (hienas-on patch-left-and-ahead 90 1)
+
+    ; Atualiza o nível de agrupamento com o número de hienas vizinhas.
+    set nivel-agrupamento vizinhos
+
+    if vizinhos = 0[
+     set nivel-agrupamento 1
+    ]
+
+    ; Muda a cor com base no nível de agrupamento.
+    if nivel-agrupamento > 1 [
+      set color green
+    ]
+    if nivel-agrupamento = 1 [
+      set color white ; ou a cor original das hienas.
+    ]
+
+
+  ; Verifica se o nível de agrupamento é maior que 1 e se há apenas um leão na vizinhança percecionada
+   if nivel-agrupamento > 1 and count leoes-on patch-ahead 1 + count leoes-on patch-right-and-ahead 90 1 + count leoes-on patch-left-and-ahead 90 1 = 1 [
+
+
+  ; Verifica e mata o leão diretamente à frente, se houver
+    if count leoes-on patch-ahead 1 = 1 and count leoes-on patch-right-and-ahead 90 1 = 0 and count leoes-on patch-left-and-ahead 90 1 = 0 [
+     Matar-Leao patch-ahead 1 self
+     stop
+   ]
+  ; Verifica e mata o leão diretamente à direita, se houver
+   if count leoes-on patch-right-and-ahead 90 1 = 1 and count leoes-on patch-ahead 1 = 0 and count leoes-on patch-left-and-ahead 90 1 = 0 [
+    Matar-Leao patch-right-and-ahead 90 1 self
+    stop
+   ]
+  ; Verifica e mata o leão diretamente à esquerda, se houver
+   if count leoes-on patch-left-and-ahead 90 1 = 1 and count leoes-on patch-ahead 1 = 0 and count leoes-on patch-right-and-ahead 90 1 = 0 [
+    Matar-Leao patch-left-and-ahead 90 1 self
+    stop
+   ]
+  ]
+
 
     if [pcolor] of patch-here = red  or [pcolor] of patch-here = brown[
       Eat-Hiena
@@ -210,9 +250,57 @@ to MoveHienas
           random 101 <= 50 [lt 90 fd 1 Perde-Energia]
     )]
 
+     ; Conta o número de hienas na vizinhança imediata.
+    let vizinhos2 count (hienas-on patch-ahead 1) + count (hienas-on patch-right-and-ahead 90 1) + count (hienas-on patch-left-and-ahead 90 1)
+
+    ; Atualiza o nível de agrupamento com o número de hienas vizinhas.
+    set nivel-agrupamento vizinhos
+
+    if vizinhos2 = 0[
+     set nivel-agrupamento 1
+    ]
+
+    ; Muda a cor com base no nível de agrupamento.
+    if nivel-agrupamento > 1 [
+      set color green
+    ]
+    if nivel-agrupamento = 1 [
+      set color white ; ou a cor original das hienas.
+    ]
+
+
+
     Death
   ]
 end
+
+
+to Matar-Leao [patch-alvo agente_hiena]
+  ; Seleciona o leão no patch-alvo
+  let leao-vitima one-of leoes-on patch-alvo
+
+  ; Calcula a energia perdida no combate
+  let energia-perdida ([energy] of leao-vitima * percentagem_combate / 100) / nivel-agrupamento
+
+  ; Reduz a energia da hiena
+  ask agente_hiena [
+    set energy energy - energia-perdida
+  ]
+
+  ; Mata o leão e transforma-o em alimento de grande porte
+  ask leao-vitima [
+    die
+  ]
+  ask patch-alvo [
+    set pcolor red ;
+  ]
+end
+
+
+
+
+
+
 
 to Combater-Hiena [agente_leao]
   ; Conta o total de hienas na vizinhança percecionada
@@ -254,12 +342,6 @@ to Matar-Hiena [agente_leao patch_alvo]
     set pcolor brown
   ]
 end
-
-
-
-
-
-
 
 
 to-report Hienas-Na-Direcao [angulo]
@@ -362,7 +444,8 @@ to Reaparece-Alimento-Pequeno
 end
 
 to Atualizar-Nivel-Agrupamento
-  set nivel-agrupamento count hienas in-radius 1
+  let total count hienas-on patch-ahead 1 + count hienas-on patch-right-and-ahead 90 1 + count hienas-on patch-left-and-ahead 90 1
+  set nivel-agrupamento total
   ifelse nivel-agrupamento > 1 [
     set color blue  ; ou qualquer outra cor
   ] [
@@ -435,7 +518,7 @@ BUTTON
 510
 NIL
 Go
-NIL
+T
 1
 T
 OBSERVER
@@ -499,7 +582,7 @@ energia_inicial
 energia_inicial
 1
 200
-100.0
+20.0
 1
 1
 NIL
@@ -529,7 +612,7 @@ limiar_energia
 limiar_energia
 10
 50
-20.0
+40.0
 1
 1
 NIL
@@ -574,7 +657,7 @@ nhienas
 nhienas
 0
 100
-10.0
+32.0
 1
 1
 NIL

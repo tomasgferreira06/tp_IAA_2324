@@ -3,7 +3,7 @@ breed [leoes leao] ;cria agentes do tipo leao
 
 
 turtles-own [ energy ]
-leoes-own [descanso_ticks hienas-esquerda hienas-direita hienas-frente]
+leoes-own [descanso_ticks hienas_frente hienas_esquerda hienas_direita]
 hienas-own [nivel-agrupamento]
 
 globals[ alimentos_castanho alimentos_vermelho ingeridos_castanho ingeridos_vermelho]
@@ -16,8 +16,9 @@ end
 
 
 to Go
-  MoveLeoes
   MoveHienas
+  MoveLeoes
+  Atualizar-Nivel-Agrupamento
   RegenAlimento
 
 end
@@ -87,8 +88,22 @@ to Death
   if energy <= 0 [ die ] ;os agentes morrem quando a energia chega a 0
 end
 
+
+to percecionarHienas
+       set hienas_frente count hienas-on patch-ahead 1
+       set hienas_direita count hienas-on patch-right-and-ahead 90 1
+       set hienas_esquerda count hienas-on patch-left-and-ahead 90 1
+
+end
+
+
+
+
 to MoveLeoes
   ask leoes [
+
+    percecionarHienas
+
     ; Se o leão estiver descansando, apenas decrementa o contador de descanso e para a execução
     if descanso_ticks > 0 [
       set descanso_ticks descanso_ticks - 1
@@ -99,12 +114,48 @@ to MoveLeoes
       stop
     ]
 
+
     ; Verifica se a energia do leão é suficiente para a movimentação especial
     if energy >= limiar_energia [
-      ; Se a movimentação especial ocorrer, não execute outras ações
-      if Movimentacao-Especial [
-        stop
-      ]
+    ;set hienas_frente count hienas-on patch-ahead 1
+    ;set hienas_direita count hienas-on patch-right-and-ahead 90 1
+    ;set hienas_esquerda count hienas-on patch-left-and-ahead 90 1
+
+  ; Implementa a lógica de movimentação especial
+  if hienas_esquerda >= 2 and hienas_direita = 0 and hienas_frente = 0 [
+    rt 90
+    fd 1
+    set energy energy - 2
+    ;report true
+  ]
+  if hienas_direita >= 2 and hienas_esquerda = 0 and hienas_frente = 0 [
+    lt 90
+    fd 1
+    set energy energy - 2
+    ;report true
+  ]
+  if hienas_frente >= 2 or (hienas_esquerda >= 1 and hienas_direita >= 1) [
+    bk 1
+    set energy energy - 3
+    ;report true
+  ]
+  if hienas_esquerda >= 1 and hienas_frente >= 1 and hienas_direita = 0 [
+    rt 135
+    fd 1
+    set energy energy - 5
+    ;report true
+  ]
+  if hienas_direita >= 1 and hienas_frente >= 1 and hienas_esquerda = 0 [
+    lt 135
+    fd 1
+    set energy energy - 5
+    ;report true
+  ]
+  if hienas_esquerda >= 1 and hienas_direita >= 1 and hienas_frente >= 1 [
+    bk 2
+    set energy energy - 4
+    ;report true
+  ]
     ]
 
     if [pcolor] of patch-here = red  or [pcolor] of patch-here = brown[
@@ -171,130 +222,142 @@ to MoveLeoes
           random 101 <= 50 [lt 90 fd 1 Perde-Energia]
     )]
     Death
+    percecionarHienas
   ]
 end
 
 to MoveHienas
   ask hienas [
 
-         ; Conta o número de hienas na vizinhança imediata.
-    let vizinhos count (hienas-on patch-ahead 1) + count (hienas-on patch-right-and-ahead 90 1) + count (hienas-on patch-left-and-ahead 90 1)
-
-    ; Atualiza o nível de agrupamento com o número de hienas vizinhas.
-    set nivel-agrupamento vizinhos
-
-    if vizinhos = 0[
-     set nivel-agrupamento 1
-    ]
-
-    ; Muda a cor com base no nível de agrupamento.
-    if nivel-agrupamento > 1 [
-      set color green
-    ]
-    if nivel-agrupamento = 1 [
-      set color white ; ou a cor original das hienas.
-    ]
-
-
-  ; Verifica se o nível de agrupamento é maior que 1 e se há apenas um leão na vizinhança percecionada
-   if nivel-agrupamento > 1 and count leoes-on patch-ahead 1 + count leoes-on patch-right-and-ahead 90 1 + count leoes-on patch-left-and-ahead 90 1 = 1 [
-
-
-  ; Verifica e mata o leão diretamente à frente, se houver
-    if count leoes-on patch-ahead 1 = 1 and count leoes-on patch-right-and-ahead 90 1 = 0 and count leoes-on patch-left-and-ahead 90 1 = 0 [
-     Matar-Leao patch-ahead 1 self
-     stop
-   ]
-  ; Verifica e mata o leão diretamente à direita, se houver
-   if count leoes-on patch-right-and-ahead 90 1 = 1 and count leoes-on patch-ahead 1 = 0 and count leoes-on patch-left-and-ahead 90 1 = 0 [
-    Matar-Leao patch-right-and-ahead 90 1 self
-    stop
-   ]
-  ; Verifica e mata o leão diretamente à esquerda, se houver
-   if count leoes-on patch-left-and-ahead 90 1 = 1 and count leoes-on patch-ahead 1 = 0 and count leoes-on patch-right-and-ahead 90 1 = 0 [
-    Matar-Leao patch-left-and-ahead 90 1 self
-    stop
-   ]
-  ]
-
-
     if [pcolor] of patch-here = red  or [pcolor] of patch-here = brown[
       Eat-Hiena
+
       stop
     ]
     if [pcolor] of patch-ahead 1 = red or [pcolor] of patch-ahead 1 = brown [
       fd 1
       Perde-Energia
+
       stop
     ]
     if [pcolor] of patch-right-and-ahead 90 1 = red or [pcolor] of patch-right-and-ahead 90 1 = brown [
       rt 90
       fd 1
       Perde-Energia
+
       stop
     ]
     if [pcolor] of patch-left-and-ahead 90 1 = red or [pcolor] of patch-left-and-ahead 90 1 = brown [
         lt 90
         fd 1
         Perde-Energia
+
         stop
       ]
 
 
+    if nivel-agrupamento > 1[
+       Matar-Leao
+    ]
+
+
+
      if [pcolor] of patch-ahead 1 = black or [pcolor] of patch-right-and-ahead 90 1 = black or [pcolor] of patch-left-and-ahead 90 1 = black [
         (ifelse
-          random 101 <= 50 [fd 1 Perde-Energia]
+          random 101 <= 50 [fd 1 Perde-Energia ]
 
-          random 101 <= 50 [rt 90 fd 1 Perde-Energia]
+          random 101 <= 50 [rt 90 fd 1 Perde-Energia ]
 
-          random 101 <= 50 [lt 90 fd 1 Perde-Energia]
+          random 101 <= 50 [lt 90 fd 1 Perde-Energia ]
     )]
 
-     ; Conta o número de hienas na vizinhança imediata.
-    let vizinhos2 count (hienas-on patch-ahead 1) + count (hienas-on patch-right-and-ahead 90 1) + count (hienas-on patch-left-and-ahead 90 1)
-
-    ; Atualiza o nível de agrupamento com o número de hienas vizinhas.
-    set nivel-agrupamento vizinhos
-
-    if vizinhos2 = 0[
-     set nivel-agrupamento 1
-    ]
-
-    ; Muda a cor com base no nível de agrupamento.
-    if nivel-agrupamento > 1 [
-      set color green
-    ]
-    if nivel-agrupamento = 1 [
-      set color white ; ou a cor original das hienas.
-    ]
-
-
-
     Death
+
   ]
 end
 
 
-to Matar-Leao [patch-alvo agente_hiena]
-  ; Seleciona o leão no patch-alvo
-  let leao-vitima one-of leoes-on patch-alvo
+to Matar-Leao
+  ; Obtenha o leão na vizinhança percecionada da hiena atual
+  let vizinhos-leao count (leoes-on patch-ahead 1) + count (leoes-on patch-right-and-ahead 90 1) + count (leoes-on patch-left-and-ahead 90 1)
 
-  ; Calcula a energia perdida no combate
-  let energia-perdida ([energy] of leao-vitima * percentagem_combate / 100) / nivel-agrupamento
+  if vizinhos-leao = 1 [
+    if count (leoes-on patch-ahead 1) = 1[
+       let hienas-frente1 count hienas-on patch-ahead 1
+       let hienas-direita1 count hienas-on patch-right-and-ahead 90 1
+       let hienas-esquerda1 count hienas-on patch-left-and-ahead 90 1
 
-  ; Reduz a energia da hiena
-  ask agente_hiena [
-    set energy energy - energia-perdida
-  ]
+       let leao-alvo one-of leoes-on patch-ahead 1
+       let energia-leao [energy] of leao-alvo
+       let percentagem-energia-leao (energia-leao * percentagem_combate / 100)
 
-  ; Mata o leão e transforma-o em alimento de grande porte
-  ask leao-vitima [
-    die
-  ]
-  ask patch-alvo [
-    set pcolor red ;
+       ; Calcule a energia a ser perdida por cada hiena
+       let energia-a-perder-hiena percentagem-energia-leao / (nivel-agrupamento + 1)
+
+       ; Atualize a energia das hienas atacantes
+       ask hienas-on patch-here [set energy energy - energia-a-perder-hiena]
+       ask hienas-on patch-right-and-ahead 90 1 [set energy energy - energia-a-perder-hiena]
+       ask hienas-on patch-left-and-ahead 90 1 [set energy energy - energia-a-perder-hiena]
+
+       ; Muda a cor do patch para vermelho
+       ask patch-ahead 1 [set pcolor red]
+
+       ; Remova o leão do mundo
+       ask leao-alvo [die]
+    ]
+    if count (leoes-on patch-right-and-ahead 90 1) = 1 [
+
+            let hienas-frente1 count hienas-on patch-ahead 1
+       let hienas-direita1 count hienas-on patch-right-and-ahead 90 1
+       let hienas-esquerda1 count hienas-on patch-left-and-ahead 90 1
+
+      let leao-alvo one-of leoes-on patch-right-and-ahead 90 1
+       let energia-leao [energy] of leao-alvo
+       let percentagem-energia-leao (energia-leao * percentagem_combate / 100)
+
+       ; Calcule a energia a ser perdida por cada hiena
+       let energia-a-perder-hiena percentagem-energia-leao / (nivel-agrupamento + 1)
+
+       ; Atualize a energia das hienas atacantes
+       ask hienas-on patch-here [set energy energy - energia-a-perder-hiena]
+       ask hienas-on patch-ahead 1 [set energy energy - energia-a-perder-hiena]
+       ask hienas-on patch-left-and-ahead 90 1 [set energy energy - energia-a-perder-hiena]
+
+       ; Muda a cor do patch para vermelho
+       ask patch-right-and-ahead 90 1 [set pcolor red]
+
+       ; Remova o leão do mundo
+       ask leao-alvo [die]
+
+    ]
+    if count (leoes-on patch-left-and-ahead 90 1 ) = 1[
+
+        let hienas-frente1 count hienas-on patch-ahead 1
+       let hienas-direita1 count hienas-on patch-right-and-ahead 90 1
+       let hienas-esquerda1 count hienas-on patch-left-and-ahead 90 1
+
+      let leao-alvo one-of leoes-on patch-left-and-ahead 90 1
+       let energia-leao [energy] of leao-alvo
+       let percentagem-energia-leao (energia-leao * percentagem_combate / 100)
+
+       ; Calcule a energia a ser perdida por cada hiena
+       let energia-a-perder-hiena percentagem-energia-leao / (nivel-agrupamento + 1)
+
+       ; Atualize a energia das hienas atacantes
+       ask hienas-on patch-here [set energy energy - energia-a-perder-hiena]
+       ask hienas-on patch-right-and-ahead 90 1 [set energy energy - energia-a-perder-hiena]
+       ask hienas-on patch-ahead 1 [set energy energy - energia-a-perder-hiena]
+
+       ; Muda a cor do patch para vermelho
+       ask patch-left-and-ahead 90 1 [set pcolor red]
+
+       ; Remova o leão do mundo
+       ask leao-alvo [die]
+
+    ]
   ]
 end
+
 
 
 
@@ -344,54 +407,9 @@ to Matar-Hiena [agente_leao patch_alvo]
 end
 
 
-to-report Hienas-Na-Direcao [angulo]
-  let hienas_count count hienas in-cone 1 60 with [heading = [heading] of myself + angulo]
-  report hienas_count
-end
 
-to-report Movimentacao-Especial
-  ; Verifica a presença de hienas nas direções
-  let hienas_frente Hienas-Na-Direcao 0
-  let hienas_direita Hienas-Na-Direcao 90
-  let hienas_esquerda Hienas-Na-Direcao -90
 
-  ; Implementa a lógica de movimentação especial
-  if hienas_esquerda >= 2 and hienas_direita = 0 and hienas_frente = 0 [
-    rt 90
-    fd 1
-    set energy energy - 2
-    report true
-  ]
-  if hienas_direita >= 2 and hienas_esquerda = 0 and hienas_frente = 0 [
-    lt 90
-    fd 1
-    set energy energy - 2
-    report true
-  ]
-  if hienas_frente >= 2 or (hienas_esquerda >= 1 and hienas_direita >= 1) [
-    bk 1
-    set energy energy - 3
-    report true
-  ]
-  if hienas_esquerda >= 1 and hienas_frente >= 1 and hienas_direita = 0 [
-    rt 135
-    fd 1
-    set energy energy - 5
-    report true
-  ]
-  if hienas_direita >= 1 and hienas_frente >= 1 and hienas_esquerda = 0 [
-    lt 135
-    fd 1
-    set energy energy - 5
-    report true
-  ]
-  if hienas_esquerda >= 1 and hienas_direita >= 1 and hienas_frente >= 1 [
-    bk 2
-    set energy energy - 4
-    report true
-  ]
-  report false ; Se nenhuma das condições foi atendida, retorna false
-end
+
 
 
 to Eat-Leao
@@ -444,13 +462,27 @@ to Reaparece-Alimento-Pequeno
 end
 
 to Atualizar-Nivel-Agrupamento
-  let total count hienas-on patch-ahead 1 + count hienas-on patch-right-and-ahead 90 1 + count hienas-on patch-left-and-ahead 90 1
-  set nivel-agrupamento total
-  ifelse nivel-agrupamento > 1 [
-    set color blue  ; ou qualquer outra cor
-  ] [
-    set color white ;cor original da hiena
+
+  ask hienas[
+     ; Conta o número de hienas na vizinhança imediata.
+    let vizinhos count (hienas-on patch-ahead 1) + count (hienas-on patch-right-and-ahead 90 1) + count (hienas-on patch-left-and-ahead 90 1)
+
+
+    if vizinhos = 0 or vizinhos = 1[
+     set nivel-agrupamento 1
+     set color white
+    ]
+
+
+
+    ; Muda a cor com base no nível de agrupamento.
+    if vizinhos > 1 [
+      set nivel-agrupamento vizinhos
+      set color green
+    ]
   ]
+
+
 
 end
 
@@ -518,7 +550,7 @@ BUTTON
 510
 NIL
 Go
-T
+NIL
 1
 T
 OBSERVER
@@ -537,7 +569,7 @@ percentagem_alimento_castanho
 percentagem_alimento_castanho
 0
 20
-1.0
+0.0
 1
 1
 %
@@ -552,7 +584,7 @@ percentagem_alimento_vermelho
 percentagem_alimento_vermelho
 0
 10
-1.0
+0.0
 1
 1
 %
@@ -582,7 +614,7 @@ energia_inicial
 energia_inicial
 1
 200
-20.0
+99.0
 1
 1
 NIL
@@ -612,7 +644,7 @@ limiar_energia
 limiar_energia
 10
 50
-40.0
+10.0
 1
 1
 NIL
@@ -627,7 +659,7 @@ num_patches_descanso
 num_patches_descanso
 0
 5
-5.0
+0.0
 1
 1
 NIL
@@ -642,7 +674,7 @@ nleoes
 nleoes
 0
 100
-10.0
+15.0
 1
 1
 NIL
@@ -657,7 +689,7 @@ nhienas
 nhienas
 0
 100
-32.0
+12.0
 1
 1
 NIL
